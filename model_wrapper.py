@@ -66,9 +66,12 @@ class ModelWrapper(pl.LightningModule):
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         return self.optimizer
 
-    def training_step(self, input_batch, batch_idx):
+    def training_step(self, input_batch: Dict[str, Any], batch_idx):
         model_res = self.model(input_batch, **self.train_forward_args)
         loss_res = self.loss_fn(input_batch, model_res)
+        assert isinstance(
+            loss_res,
+            dict), f"loss_res should be a dict. Got {type(loss_res)}."
         assert "loss" in loss_res, f"loss not in loss_res keys {loss_res.keys()}"
         loss = loss_res.pop("loss")
         self.log("train/loss", loss, on_step=True)
@@ -76,26 +79,27 @@ class ModelWrapper(pl.LightningModule):
             self.log(f"train/{k}", v, on_step=True)
         return {"loss": loss}
 
-    def validation_step(self, input_batch, batch_idx):
+    def validation_step(self, input_batch: Dict[str, Any], batch_idx):
         nntime.timer_start(self, "validation_forward")
         start_time = time.time()
         model_res = self.model(input_batch, **self.val_forward_args)
         end_time = time.time()
         nntime.timer_end(self, "validation_forward")
-        output_batch = model_res["forward"]
         self.metric.to(self.device)
 
         if self.save_output_folder is not None:
-            self._save_output(input_batch, output_batch, batch_idx,
+            self._save_output(input_batch, model_res, batch_idx,
                               end_time - start_time)
 
         if not self.has_labels:
             return
 
-        self.metric.update(output_batch, input_batch, batch_idx,
+        self.metric.update(input_batch, model_res, batch_idx,
                            end_time - start_time)
 
-    def _save_output(self, input_batch, output_batch, batch_idx, forward_time):
+    def _save_output(self, input_batch: Dict[str, Any],
+                     output_batch: Dict[str, Any], batch_idx: int,
+                     forward_time: float):
         pass
 
     def _to_numpy(self, d):

@@ -27,5 +27,5 @@ class AdditionDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return {
             "inputs": self.inputs[:, idx],
-            "label": torch.sum(self.inputs[:, idx], axis=0)
+            "target": torch.sum(self.inputs[:, idx], axis=0, keepdims=True)
         }
